@@ -1,0 +1,56 @@
+# https://docs.docker.com/guides/gha/
+
+# DOCKER_USERNAME configuration variable must be defined:
+# [repository] > Settings > Secrets and variables > Actions > Variables
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables
+# 
+
+# DOCKER_PASSWORD repository secret must be defined:
+# [repository] > Settings > Secrets and variables > Actions > Secrets
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions
+#
+
+name: Build Docker Image for Docker Hub
+
+on:
+
+  # Trigger on push to branch
+  push:
+    branches: 'master'
+
+  # Trigger manually
+  workflow_dispatch:
+
+jobs:
+
+  build-docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Extract Docker image metadata
+        id: meta
+        # https://github.com/docker/metadata-action
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}
+          tags: latest
+
+      - name: Log in to Docker Hub
+        # https://github.com/docker/login-action
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        # https://github.com/docker/setup-buildx-action
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build and push Docker image
+        # https://github.com/docker/build-push-action
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: true
+          sbom: true
